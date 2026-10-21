@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<title>Photobooth</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#fff4f8;color:#3a2a33;font-family:-apple-system,Helvetica,Arial,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:16px}
+h1{margin:4px 0 6px;font-size:30px;color:#e8336f}
+p.sub{margin:0 0 18px;color:#8a6a78;font-size:16px}
+.scr{display:none}.scr.on{display:block}
+.big{display:block;width:100%;margin:0 0 14px;padding:34px 10px;font-size:26px;font-weight:700;border:0;border-radius:22px;color:#fff;-webkit-appearance:none}
+.big small{display:block;margin-top:6px;font-size:15px;font-weight:500;opacity:.9}
+.b1{background:#e8336f}.b3{background:#ff9a1a}
+.grid{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;margin:0 -6px}
+.card{padding:6px;width:25%}
+.card.w3{width:33.33%}
+.card button{display:block;width:100%;padding:6px;background:#fff;border:2px solid #f3b6cd;border-radius:12px;-webkit-appearance:none;font-size:14px;color:#8a6a78;font-weight:600}
+.card canvas{display:block;width:100%;height:auto;margin-bottom:4px}
+.btn,.chip{border:2px solid #e8336f;background:#fff;color:#e8336f;border-radius:22px;padding:10px 16px;margin:0 8px 8px 0;font-size:16px;font-weight:600;-webkit-appearance:none}
+.btn.main,.chip.done{background:#e8336f;color:#fff}
+.chip.done{background:#2e9d5b;border-color:#2e9d5b}
+.row{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap}
+input[type=text]{width:100%;padding:12px;font-size:18px;border:2px solid #f3b6cd;border-radius:12px;background:#fff;-webkit-appearance:none;margin-bottom:6px}
+#cv{display:block;margin:14px auto;max-width:100%;max-height:74vh;box-shadow:0 6px 24px rgba(0,0,0,.2)}
+#ov{display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.88);z-index:9;text-align:center;overflow:auto;-webkit-overflow-scrolling:touch;padding:16px}
+#ov img{max-width:100%;max-height:75vh}
+#ov p{color:#fff;font-size:17px;margin:12px 0}
+@media (max-width:520px){.card{width:33.33%}.card.w3{width:50%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="scr on" id="s1">
+ <h1>Photobooth</h1>
+ <p class="sub">Šta pravimo?</p>
+ <button class="big b1" id="pick1">1 slika<small>jedna velika slika u okviru</small></button>
+ <button class="big b3" id="pick3">3 slike<small>klasična photobooth traka</small></button>
+</div>
+
+<div class="scr" id="s2">
+ <div class="row"><button class="btn" id="back1">‹ Nazad</button></div>
+ <h1>Izaberi dizajn</h1>
+ <div class="grid" id="grid"></div>
+</div>
+
+<div class="scr" id="s3">
+ <div class="row"><button class="btn" id="back2">‹ Dizajni</button><button class="btn" id="reset">Obriši slike</button></div>
+ <div class="row" id="slots"></div>
+ <input type="text" id="cap" maxlength="28" placeholder="Natpis">
+ <canvas id="cv"></canvas>
+ <button class="btn main" id="save">Sačuvaj sliku</button>
+</div>
+
+</div>
+<input type="file" id="file" accept="image/*" style="display:none">
+<div id="ov"><p>Drži prst na slici pa izaberi „Save Image“</p><img id="out" alt=""><p><button class="btn main" id="close">Zatvori</button></p></div>
+
+<script>
+(function(){
+var LAY={
+ strip:{W:600,H:1900,cap:1765,s:[[60,60,480,480],[60,600,480,480],[60,1140,480,480]]},
+ single:{W:900,H:1200,cap:1075,s:[[70,70,760,860]]}
+};
+var STY=[
+ {n:'Roze',bg:'#ff9bd2',pat:'grid',pc:'#ffd3ec',b:'scallop',bc:'#e8336f',lw:6,seg:44,mat:'#fff',tc:'#e8336f'},
+ {n:'Žuto',bg:'#ffc83d',pat:'grid',pc:'#ffe7a0',b:'scallop',bc:'#ff8a00',lw:6,seg:44,mat:'#fff',deco:'star',df:'#fff3a0',ds:'#1a6aa8',tc:'#1a6aa8'},
+ {n:'Plave zvezde',bg:'#aed4f2',b:'plain',bc:'#aed4f2',lw:0,mat:'#fff',deco:'star',df:'#111',tc:'#111'},
+ {n:'Film',bg:'#1e1e1e',film:1,b:'plain',bc:'#000',lw:4,mat:'#000',tc:'#fff'},
+ {n:'Srca',bg:'#ffc0cb',b:'scallop',bc:'#f4d3c4',lw:4,seg:40,mat:'#fff',deco:'heart',df:'#c62033',tc:'#c62033'},
+ {n:'Karo',bg:'#c0392b',pat:'check',cs:40,pc:'#f5e6c8',b:'plain',bc:'#3a1a15',lw:5,mat:'#fff',tc:'#fff'},
+ {n:'Talas',bg:'#2e7d32',b:'scallop',bc:'#ffb81c',lw:14,seg:90,mat:'#fff',tc:'#ffb81c'},
+ {n:'Gingham',bg:'#f3ecd6',pat:'ging',pc:'rgba(110,160,100,.5)',b:'plain',bc:'#6e9f64',lw:5,mat:'#fff',tc:'#4d7a45'},
+ {n:'Pruge',bg:'#f1ead6',pat:'check',cs:60,pc:'#7fa0c4',b:'plain',bc:'#456a94',lw:5,mat:'#fff',tc:'#456a94'},
+ {n:'Noć',bg:'#243b82',b:'plain',bc:'#fff',lw:4,mat:'#fff',deco:'star',df:'#fff',tc:'#fff'},
+ {n:'Šuma',bg:'#55663a',b:'plain',bc:'#2f3b1c',lw:10,mat:'#fff',tc:'#f1ead6'},
+ {n:'Mint',bg:'#bff0d8',pat:'grid',pc:'#e6fff3',b:'scallop',bc:'#2aa76a',lw:6,seg:44,mat:'#fff',deco:'heart',df:'#ff7aa8',tc:'#2aa76a'}
+];
+var layout='strip',sty=0,cur=0,photos=[null,null,null];
+var $=function(i){return document.getElementById(i);};
+var cv=$('cv'),cap=$('cap'),file=$('file');
+var d=new Date();cap.value=d.getDate()+'.'+(d.getMonth()+1)+'.'+d.getFullYear();
+
+function show(id){var a=['s1','s2','s3'],i;for(i=0;i<3;i++)$(a[i]).className='scr'+(a[i]===id?' on':'');window.scrollTo(0,0);}
+function mkr(){var s=7;return function(){s=(s*9301+49297)%233280;return s/233280;};}
+function star(x,cx,cy,R,rot,f,s){var i,a,r;x.beginPath();for(i=0;i<10;i++){a=rot+i*Math.PI/5-Math.PI/2;r=i%2?R*0.45:R;x.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);}x.closePath();x.fillStyle=f;x.fill();if(s){x.strokeStyle=s;x.lineWidth=3;x.stroke();}}
+function heart(x,cx,cy,s,f){x.beginPath();x.moveTo(cx,cy+s*0.9);x.bezierCurveTo(cx-s*1.6,cy-s*0.2,cx-s*0.6,cy-s*1.1,cx,cy-s*0.4);x.bezierCurveTo(cx+s*0.6,cy-s*1.1,cx+s*1.6,cy-s*0.2,cx,cy+s*0.9);x.fillStyle=f;x.fill();}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.lineTo(a+w-r,b);x.quadraticCurveTo(a+w,b,a+w,b+r);x.lineTo(a+w,b+h-r);x.quadraticCurveTo(a+w,b+h,a+w-r,b+h);x.lineTo(a+r,b+h);x.quadraticCurveTo(a,b+h,a,b+h-r);x.lineTo(a,b+r);x.quadraticCurveTo(a,b,a+r,b);x.closePath();}
+function sp(x,a,b,w,h,seg){
+ var nx=Math.max(1,Math.round(w/seg)),ny=Math.max(1,Math.round(h/seg)),sw=w/nx,sh=h/ny,i,P=Math.PI;
+ x.beginPath();x.moveTo(a,b);
+ for(i=0;i<nx;i++)x.arc(a+sw*(i+.5),b,sw/2,P,0,false);
+ for(i=0;i<ny;i++)x.arc(a+w,b+sh*(i+.5),sh/2,-P/2,P/2,false);
+ for(i=nx-1;i>=0;i--)x.arc(a+sw*(i+.5),b+h,sw/2,0,P,false);
+ for(i=ny-1;i>=0;i--)x.arc(a,b+sh*(i+.5),sh/2,P/2,P*1.5,false);
+ x.closePath();
+}
+function inSlot(L,px,py,m){var i,s;for(i=0;i<L.s.length;i++){s=L.s[i];if(px>s[0]-m&&px<s[0]+s[2]+m&&py>s[1]-m&&py<s[1]+s[3]+m)return true;}return false;}
+
+function draw(c,L,st,ph,text,k){
+ var x=c.getContext('2d'),i,j,s,im,rnd=mkr();
+ c.width=Math.round(L.W*k);c.height=Math.round(L.H*k);x.scale(k,k);
+ x.fillStyle=st.bg;x.fillRect(0,0,L.W,L.H);
+ if(st.pat==='grid'){x.strokeStyle=st.pc;x.lineWidth=4;for(i=20;i<L.W;i+=48){x.beginPath();x.moveTo(i,0);x.lineTo(i,L.H);x.stroke();}for(i=20;i<L.H;i+=48){x.beginPath();x.moveTo(0,i);x.lineTo(L.W,i);x.stroke();}}
+ if(st.pat==='check'){var q=st.cs;x.fillStyle=st.pc;for(i=0;i<L.W/q;i++)for(j=0;j<L.H/q;j++)if((i+j)%2)x.fillRect(i*q,j*q,q,q);}
+ if(st.pat==='ging'){x.fillStyle=st.pc;for(i=0;i<L.W;i+=60)x.fillRect(i,0,30,L.H);for(j=0;j<L.H;j+=60)x.fillRect(0,j,L.W,30);}
+ if(st.film){x.fillStyle='#f4f4f4';for(j=14;j<L.H;j+=60){rr(x,16,j,26,36,6);x.fill();rr(x,L.W-42,j,26,36,6);x.fill();}}
+ for(i=0;i<L.s.length;i++){
+  s=L.s[i];
+  if(st.b==='scallop'){sp(x,s[0],s[1],s[2],s[3],st.seg);}else{x.beginPath();x.rect(s[0],s[1],s[2],s[3]);}
+  x.fillStyle=st.mat;x.fill();
+  x.save();x.beginPath();x.rect(s[0]+10,s[1]+10,s[2]-20,s[3]-20);x.clip();
+  im=ph[i];
+  if(im){var sc=Math.max((s[2]-20)/im.width,(s[3]-20)/im.height),sw=(s[2]-20)/sc,sh=(s[3]-20)/sc;x.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,s[0]+10,s[1]+10,s[2]-20,s[3]-20);}
+  else{x.fillStyle='#f6eef2';x.fillRect(s[0],s[1],s[2],s[3]);x.fillStyle='#d6bfca';x.font='bold 140px Helvetica,Arial';x.textAlign='center';x.fillText(String(i+1),s[0]+s[2]/2,s[1]+s[3]/2+48);}
+  x.restore();
+  if(st.lw){x.lineWidth=st.lw;x.strokeStyle=st.bc;x.lineJoin='round';
+   if(st.b==='scallop'){sp(x,s[0],s[1],s[2],s[3],st.seg);x.stroke();}else{x.strokeRect(s[0],s[1],s[2],s[3]);}}
+ }
+ if(st.deco){
+  var n=Math.round(L.W*L.H/17000),t,px,py,sz;
+  for(t=0;t<n;t++){px=rnd()*L.W;py=rnd()*L.H;sz=12+rnd()*18;
+   if(inSlot(L,px,py,sz*0.6+20))continue;
+   if(st.deco==='star')star(x,px,py,sz,rnd()*1.2,st.df,st.ds);
+   else if(t%3===0)star(x,px,py,sz*0.8,rnd(),st.df,null);else heart(x,px,py,sz*0.8,st.df);}
+ }
+ if(text){x.font='bold 56px Georgia,serif';x.textAlign='center';x.fillStyle=st.tc;x.fillText(text,L.W/2,L.cap);}
+}
+
+function buildGrid(){
+ var g=$('grid'),i,card,b,c,l,k=layout==='strip'?0.26:0.3;g.innerHTML='';
+ for(i=0;i<STY.length;i++){
+  card=document.createElement('div');card.className='card'+(layout==='single'?' w3':'');
+  b=document.createElement('button');c=document.createElement('canvas');
+  draw(c,LAY[layout],STY[i],photos,'',k);
+  l=document.createElement('span');l.textContent=STY[i].n;
+  b.appendChild(c);b.appendChild(l);
+  (function(n){b.onclick=function(){sty=n;openEditor();};})(i);
+  card.appendChild(b);g.appendChild(card);
+ }
+}
+function renderSlots(){
+ var L=LAY[layout],el=$('slots'),i,b;el.innerHTML='';
+ for(i=0;i<L.s.length;i++){b=document.createElement('button');b.className='chip'+(photos[i]?' done':'');b.textContent=(photos[i]?'✓ ':'+ ')+'Slika '+(i+1);(function(n){b.onclick=function(){cur=n;file.click();};})(i);el.appendChild(b);}
+}
+function refresh(){renderSlots();draw(cv,LAY[layout],STY[sty],photos,cap.value,1);}
+function openEditor(){show('s3');refresh();}
+function start(l){layout=l;buildGrid();show('s2');}
+
+file.onchange=function(){
+ var f=file.files&&file.files[0];if(!f)return;
+ var r=new FileReader();
+ r.onload=function(){var im=new Image();im.onload=function(){photos[cur]=im;refresh();};im.src=r.result;};
+ r.readAsDataURL(f);file.value='';
+};
+cap.oninput=function(){draw(cv,LAY[layout],STY[sty],photos,cap.value,1);};
+$('pick1').onclick=function(){start('single');};
+$('pick3').onclick=function(){start('strip');};
+$('back1').onclick=function(){show('s1');};
+$('back2').onclick=function(){buildGrid();show('s2');};
+$('reset').onclick=function(){photos=[null,null,null];refresh();};
+$('save').onclick=function(){$('out').src=cv.toDataURL('image/jpeg',0.92);$('ov').style.display='block';};
+$('close').onclick=function(){$('ov').style.display='none';};
+})();
+</script>
+</body>
+</html>
